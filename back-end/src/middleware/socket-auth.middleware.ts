@@ -3,14 +3,19 @@ import jwt from 'jsonwebtoken';
 
 export const socketAuth = (socket: Socket, next: (err?: any) => void) => {
     try {
-        // Access Authorization header
-        const authHeader = socket.handshake.headers['authorization'] as string;
+        let token: string | null = null;
 
-        if (!authHeader) {
-            return next(new Error('Authentication error: Token missing'));
+        const authHeader = socket.handshake.headers['authorization'] as string;
+        if (authHeader) {
+            token = authHeader.replace('Bearer ', '');
+        } else if (socket.handshake.auth && socket.handshake.auth.token) {
+            const authToken = socket.handshake.auth.token;
+            token = typeof authToken === 'string' ? authToken.replace('Bearer ', '') : null;
         }
 
-        const token = authHeader.replace('Bearer ', '');
+        if (!token) {
+            return next(new Error('Authentication error: Token missing'));
+        }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
         (socket as any).user = decoded;

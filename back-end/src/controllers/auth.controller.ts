@@ -16,6 +16,21 @@ export class AuthController {
             res.status(500).json({ message: error.message });
         }
     }
+
+    async register(req: Request, res: Response): Promise<void> {
+        const { name, email, password } = req.body;
+
+        try {
+            const result = await authService.register(name, email, password);
+            if (!result.success) {
+                res.status(400).json({ message: result.message });
+                return;
+            }
+            res.status(201).json({ message: 'User registered successfully', token: result.token });
+        } catch (error: any) {
+            res.status(500).json({ message: error.message });
+        }
+    }
 }
 
 export default new AuthController();
