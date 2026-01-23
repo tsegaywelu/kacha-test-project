@@ -5,6 +5,7 @@ import { setToken } from '../redux/user/user.slice';
 import type { AppDispatch } from '../types/redux';
 import Button from '../components/Button';
 import Input from '../components/Input';
+import Layout from '../components/Layout';
 import { API_ENDPOINTS } from '../config/api';
 
 const Login = () => {
@@ -46,7 +47,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-5">
+    <Layout>
       <div className="bg-white rounded-xl p-10 w-full max-w-md shadow-2xl">
         <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Login</h1>
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -91,7 +92,7 @@ const Login = () => {
           </Link>
         </p>
       </div>
-    </div>
+    </Layout>
   );
 };
 

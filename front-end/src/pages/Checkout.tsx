@@ -6,6 +6,7 @@ import { logout } from '../redux/user/user.slice';
 import type { PaymentStatus } from '../types/payment';
 import type { RootState, AppDispatch } from '../types/redux';
 import Button from '../components/Button';
+import Layout from '../components/Layout';
 import { API_ENDPOINTS } from '../config/api';
 const DEFAULT_ORDER_ID_PREFIX = 'ORDER-';
 const INITIAL_ORDER_NUMBER = 123;
@@ -145,7 +146,7 @@ const Checkout = () => {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen p-5 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 ">
+    <Layout>
       <div className="bg-white rounded-2xl p-10 shadow-2xl max-w-md w-full animate-fade-in">
         <div className="flex justify-between items-center mb-5">
           <h1 className="text-3xl font-semibold text-gray-800">Checkout</h1>
@@ -255,7 +256,7 @@ const Checkout = () => {
           )}
         </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
