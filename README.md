@@ -49,6 +49,9 @@ Start the frontend:
 npm run dev
 
 Notes
+
 Backend must be running before starting the frontend
+
 User must be authenticated to access the checkout page
+
 Payment status updates are handled in real time via WebSocket
