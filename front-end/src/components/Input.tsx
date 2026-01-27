@@ -18,8 +18,9 @@ const Input: React.FC<InputProps> = ({
       </label>
       <input
         id={id}
-        className={`px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors focus:outline-none focus:border-indigo-500 disabled:bg-gray-100 cursor-not-allowed ${className}`}
+        className={`px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition-colors focus:outline-none focus:border-indigo-500 disabled:bg-gray-100  ${className}`}
         {...props}
+         autoComplete='off'
       />
     </div>
   );

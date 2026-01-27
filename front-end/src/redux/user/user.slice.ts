@@ -56,7 +56,7 @@ export const {
   signinFailure,
   setToken,
   logout,
-  signoutstart,
+  // signoutstart,
   signoutsuccess,
   signoutfailure,
 } = userSlice.actions; 

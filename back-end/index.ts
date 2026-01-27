@@ -1,6 +1,6 @@
 import express, { Application, Request, Response } from 'express';
 import http from 'http';
-import { Server } from 'socket.io';
+import { WebSocketServer } from 'ws';
 import dotenv from 'dotenv';
 
 import connectDB from './src/config/db';
@@ -11,11 +11,10 @@ dotenv.config();
 
 const app: Application = express();
 const port = process.env.PORT || 3000;
+const wsPort = 8080;
 
-// Connect to Database
 connectDB();
 
-// Express middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -31,27 +30,19 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use('/api', router);
 
-// Basic route
 app.get('/', (req: Request, res: Response) => {
   res.send('API is running...');
 });
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO
-const io = new Server(server, {
-  cors: {
-    origin: '*', // change to your client URL in production
-    methods: ['GET', 'POST'],
-  },
-});
+const wss = new WebSocketServer({ port: wsPort });
 
-// Initialize Socket Gateway
 const paymentGateway = new PaymentGateway();
-paymentGateway.init(io);
+paymentGateway.init(wss);
 
-// Start server
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+console.log(`WebSocket server is running on ws://localhost:${wsPort}`);

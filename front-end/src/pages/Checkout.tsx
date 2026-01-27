@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/user/user.slice';
 import type { PaymentStatus } from '../types/payment';
@@ -24,8 +23,9 @@ const Checkout = () => {
   const [reference, setReference] = useState<string | null>(null);
   const [errorReason, setErrorReason] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const socketRef = useRef<Socket | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const pendingPaymentRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const orderId = `${DEFAULT_ORDER_ID_PREFIX}${orderNumber}`;
 
@@ -35,94 +35,110 @@ const Checkout = () => {
       return;
     }
 
-    const socket = io(API_ENDPOINTS.SOCKET, {
-      auth: {
-        token: `Bearer ${token}`,
-      },
-      extraHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const ws = new WebSocket(`${API_ENDPOINTS.SOCKET}?token=${encodeURIComponent(token)}`);
 
-    socket.on('connect', () => {
-      console.log('Socket.IO connected');
+    ws.onopen = () => {
+      console.log('WebSocket connected');
       setIsConnected(true);
       setErrorReason(null);
-    });
+    };
 
-    socket.on('disconnect', () => {
-      console.log('Socket.IO disconnected');
-      setIsConnected(false);
-    });
+    ws.onmessage = (event) => {
+      try {
+        const response = JSON.parse(event.data);
+        console.log('Received response:', response);
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket.IO connection error:', error);
+        if (response.orderId === orderId || pendingPaymentRef.current) {
+          if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+          }
+          pendingPaymentRef.current = false;
+          
+          if (response.status === 'success') {
+            setStatus('SUCCESS');
+            setReference(response.transactionId);
+            setErrorReason(null);
+            setOrderNumber((prev) => prev + 1);
+          } else if (response.status === 'error') {
+            setStatus('FAILED');
+            setErrorReason(response.message || 'Payment failed');
+            setReference(null);
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing message:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
       setIsConnected(false);
-      if (error.message.includes('Authentication')) {
+      setErrorReason('Connection error. Please try again.');
+    };
+
+    ws.onclose = (event) => {
+      console.log('WebSocket disconnected', event.code, event.reason);
+      setIsConnected(false);
+      
+      if (event.code === 1008) {
         setErrorReason('Authentication failed. Please login again.');
         setTimeout(() => {
           handleLogout();
         }, 2000);
-      } else {
-        setErrorReason('Connection failed. Please try again.');
+      } else if (event.code !== 1000) {
+        setErrorReason('Connection closed. Please try again.');
       }
-    });
+    };
 
-    socketRef.current = socket;
+    wsRef.current = ws;
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [accessToken]);
 
   const sendPaymentInit = () => {
-    if (socketRef.current && socketRef.current.connected) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       const amountValue = parseFloat(amount) || 0;
-      const paymentData = {
+      const paymentMessage = {
+        type: 'INIT_PAYMENT',
         orderId: orderId,
         amount: amountValue,
         currency: currency,
       };
 
-      socketRef.current.emit('payment', paymentData);
+      wsRef.current.send(JSON.stringify(paymentMessage));
       setStatus('PENDING');
       setErrorReason(null);
       setReference(null);
-      pendingPaymentRef.current = false;
+      pendingPaymentRef.current = true;
 
-      const eventName = `payment.${orderId}`;
-      
-      const timeout = setTimeout(() => {
-        setStatus('FAILED');
-        setErrorReason('Payment timeout. No response from server.');
-      }, 10000);
-
-      socketRef.current.once(eventName, (response: any) => {
-        clearTimeout(timeout);
-        if (response.status === 'success') {
-          setStatus('SUCCESS');
-          setReference(response.transactionId);
-          setErrorReason(null);
-          setOrderNumber((prev) => prev + 1);
-        } else if (response.status === 'error') {
+      timeoutRef.current = setTimeout(() => {
+        if (pendingPaymentRef.current) {
           setStatus('FAILED');
-          setErrorReason(response.message || 'Payment failed');
-          setReference(null);
+          setErrorReason('Payment timeout. No response from server.');
+          pendingPaymentRef.current = false;
+          timeoutRef.current = null;
         }
-      });
+      }, 10000);
     }
   };
 
   const handlePayNow = () => {
-    if (!socketRef.current) {
-      setErrorReason('Socket not initialized. Please refresh the page.');
+    if (!wsRef.current) {
+      setErrorReason('WebSocket not initialized. Please refresh the page.');
       return;
     }
     
-    if (!socketRef.current.connected) {
+    if (wsRef.current.readyState !== WebSocket.OPEN) {
       setErrorReason('Not connected to server. Please wait...');
       return;
     }
@@ -138,9 +154,13 @@ const Checkout = () => {
 
   const handleLogout = () => {
     dispatch(logout());
-    if (socketRef.current) {
-      socketRef.current.disconnect();
-      socketRef.current = null;
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
     navigate('/login');
   };
