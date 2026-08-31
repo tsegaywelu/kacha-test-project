@@ -1,4 +1,4 @@
-Checkout 
+Checkout App
 
 A simple full-stack checkout application built with React and Node.js.
 
